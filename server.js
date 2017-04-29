@@ -4,6 +4,9 @@ var Gpio = require('onoff').Gpio;
 var pinGpioNumHeat = 13;
 var pinGpioNumPump = 26;
 
+var max31855 = require('max31855');
+var thermoSensor = new max31855();
+
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 var relayPump = new Gpio(pinGpioNumPump, 'out'); // uses "GPIO" numbering
 
@@ -12,7 +15,12 @@ app.get('/', function(req, res) {
 });
 
 app.get('/temp', function(req, res) {
-    res.send('Hello from Newo Brew.');
+    thermoSensor.readTempC(function(temp) {
+        var tempSensor = {};
+        tempSensor.degreesC = Number(temp).toFixed(2);
+        tempSensor.degreesF = Number(temp * 9/5 + 32).toFixed(2);
+        res.json(tempSensor);
+    });
 });
 
 app.get('/pump', function(req, res) {
