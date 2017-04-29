@@ -79,7 +79,7 @@ app.post('/heater/:val', function(req, res) {
 });
 
 app.listen(3000, function () {
-  console.log('Example app listening on port 3000!')
+  console.log('Newo Brew API listening on port 3000!')
 })
 
 module.exports = app;
