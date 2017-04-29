@@ -14,6 +14,7 @@ app.get('/', function(req, res) {
     res.send('Hello from Newo Brew.');
 });
 
+// returns temp sensor data
 app.get('/temp', function(req, res) {
     thermoSensor.readTempC(function(temp) {
         var tempSensor = {};
@@ -23,18 +24,21 @@ app.get('/temp', function(req, res) {
     });
 });
 
+// returns pump status
 app.get('/pump', function(req, res) {
     readVal = relayPump.read(function(err, val) {
         var relay = {};
         relay.name = "pump";
         relay.status = val;
+        relay.description = val === 1 ? "off" : "on";
         res.json(relay);
     });    
 });
 
+// sets pump status
 app.post('/pump/:val', function(req, res) {
     var writeVal = 1; // off
-    if (req.params.val == "0") {
+    if (req.params.val == "0" || req.params.val == "on") {
         writeVal = 0; // on
     }
     relayPump.write(writeVal, function(err) {
@@ -47,6 +51,7 @@ app.post('/pump/:val', function(req, res) {
     });
 });
 
+// returns heater status
 app.get('/heater', function(req, res) {
     readVal = relayHeat.read(function(err, val) {
         var relay = {};
@@ -57,6 +62,7 @@ app.get('/heater', function(req, res) {
     });
 });
 
+// sets heater status
 app.post('/heater/:val', function(req, res) {
     var writeVal = 1; // off
     if (req.params.val == "0" || req.params.val == "on") {
