@@ -52,13 +52,14 @@ app.get('/heater', function(req, res) {
         var relay = {};
         relay.name = "heater";
         relay.status = val;
+        relay.description = val === 1 ? "off" : "on";
         res.json(relay);
     });
 });
 
 app.post('/heater/:val', function(req, res) {
     var writeVal = 1; // off
-    if (req.params.val == "0") {
+    if (req.params.val == "0" || req.params.val == "on") {
         writeVal = 0; // on
     }
     relayHeat.write(writeVal, function(err) {
