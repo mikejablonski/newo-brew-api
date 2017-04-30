@@ -6,5 +6,5 @@ This is a work in progress.
 
 ```
 npm install
-npm start
+sudo node server.js
 ```
