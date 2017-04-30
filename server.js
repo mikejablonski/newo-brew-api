@@ -10,6 +10,12 @@ var thermoSensor = new max31855();
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 var relayPump = new Gpio(pinGpioNumPump, 'out'); // uses "GPIO" numbering
 
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 app.get('/', function(req, res) {
     res.send('Hello from Newo Brew.');
 });
@@ -78,8 +84,8 @@ app.post('/heater/:val', function(req, res) {
     });
 });
 
-app.listen(3000, function () {
-  console.log('Newo Brew API listening on port 3000!')
+app.listen(3001, function () {
+  console.log('Newo Brew API listening on port 3001!')
 })
 
 module.exports = app;
