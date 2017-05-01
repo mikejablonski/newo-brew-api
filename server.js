@@ -84,6 +84,31 @@ app.post('/heater/:val', function(req, res) {
     });
 });
 
+app.get('/brew', function(req, res) {
+    var status = {};
+    status.isBrewSessionRunning = false;
+
+
+
+    res.json(status);
+});
+
+app.post('/brew/:action', function(req, res) {
+    var spawn = require('child_process').spawn;
+
+    if (req.params.action == "start") {
+        // start the pid process
+        var theArgs = ['/home/pi/Documents/pid-test/app.js', 'API_TEST', '30',  '60'];
+        var theOptions = {cwd: '/home/pi/Documents/pid-test'};
+        var theProcess = spawn('node', theArgs, theOptions);
+    }
+    if (req.params.action == "stop") {
+        var theArgs = ['-f', 'pid-test'];
+        var theProcess = spawn('pkill', theArgs);
+    }
+    res.sendStatus(200);
+});
+
 app.listen(3001, function () {
   console.log('Newo Brew API listening on port 3001!')
 })
