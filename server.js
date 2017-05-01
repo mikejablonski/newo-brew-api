@@ -88,9 +88,21 @@ app.get('/brew', function(req, res) {
     var status = {};
     status.isBrewSessionRunning = false;
 
+    var exec = require('child_process').exec;
+    exec('pgrep -f pid-test -c', function(error, stdout, stderr) {
+        if (error !== null) {
+            console.log('exec error: ', error);
+            res.status(500).send(err);
+        }
 
+        // not sure why this is 2 when the process is running.
+        // from the shell directly this is either 0 or 1. here it's 1 or 2.
+        if (stdout.charAt(0) === '2') {
+            status.isBrewSessionRunning = true;
+        }
 
-    res.json(status);
+        res.json(status);
+    });
 });
 
 app.post('/brew/:action', function(req, res) {
