@@ -118,7 +118,10 @@ app.post('/brew/:action', function(req, res) {
         var theArgs = ['-f', 'pid-test'];
         var theProcess = spawn('pkill', theArgs);
     }
-    res.sendStatus(200);
+
+    var response = {};
+    response.action = req.params.action;
+    res.json(response);
 });
 
 app.listen(3001, function () {
