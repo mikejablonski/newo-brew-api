@@ -1,5 +1,7 @@
 var express = require('express');
 var app = express();
+var fs = require("fs");
+var loki = require('lokijs');
 var Gpio = require('onoff').Gpio;
 var pinGpioNumHeat = 13;
 var pinGpioNumPump = 26;
@@ -127,5 +129,15 @@ app.post('/brew/:action', function(req, res) {
 app.listen(3001, function () {
   console.log('Newo Brew API listening on port 3001!')
 })
+
+// returns brew session data from the database
+app.get('/brewSession/:brewSessionName', function(req, res) {
+    var db = new loki('../pid-test/brewSessions.json');
+    db.loadDatabase({}, function() {
+        var brewSessionCollection = db.getCollection('brewSessions');
+        brewSession = brewSessionCollection.findOne( {'name': req.params.brewSessionName} );
+        res.json(brewSession);
+    });
+});
 
 module.exports = app;

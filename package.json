@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.15.2",
+    "lokijs": "^1.4.3",
     "max31855": "git+https://github.com/maugdog/max31855.git",
     "onoff": "^1.1.2"
   }
