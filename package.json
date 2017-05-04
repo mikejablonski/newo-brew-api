@@ -9,6 +9,7 @@
   "author": "Mike Jablonski",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.17.1",
     "express": "^4.15.2",
     "lokijs": "^1.4.3",
     "max31855": "git+https://github.com/maugdog/max31855.git",

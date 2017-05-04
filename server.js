@@ -1,16 +1,23 @@
 var express = require('express');
+var bodyParser = require('body-parser')
 var app = express();
 var fs = require("fs");
 var loki = require('lokijs');
 var Gpio = require('onoff').Gpio;
-var pinGpioNumHeat = 13;
-var pinGpioNumPump = 26;
+var pinGpioNumHeat = 5;
+var pinGpioNumPump = 6;
 
 var max31855 = require('max31855');
 var thermoSensor = new max31855();
 
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 var relayPump = new Gpio(pinGpioNumPump, 'out'); // uses "GPIO" numbering
+
+// parse application/x-www-form-urlencoded 
+app.use(bodyParser.urlencoded({ extended: false }))
+
+// parse application/json 
+app.use(bodyParser.json())
 
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
@@ -111,8 +118,13 @@ app.post('/brew/:action', function(req, res) {
     var spawn = require('child_process').spawn;
 
     if (req.params.action == "start") {
+        // get the params
+        var sessionName = req.body.sessionName;
+        var mashTemp = req.body.mashTemp;
+        var mashHoldTime = req.body.mashHoldTime;
+
         // start the pid process
-        var theArgs = ['/home/pi/Documents/pid-test/app.js', 'API_TEST', '30',  '60'];
+        var theArgs = ['/home/pi/Documents/pid-test/app.js', sessionName, mashTemp,  mashHoldTime];
         var theOptions = {cwd: '/home/pi/Documents/pid-test'};
         var theProcess = spawn('node', theArgs, theOptions);
     }
@@ -136,7 +148,13 @@ app.get('/brewSession/:brewSessionName', function(req, res) {
     db.loadDatabase({}, function() {
         var brewSessionCollection = db.getCollection('brewSessions');
         brewSession = brewSessionCollection.findOne( {'name': req.params.brewSessionName} );
-        res.json(brewSession);
+        if (!brewSession) {
+            //res.sendStatus(404);
+            res.status(404).send('Brew session not found');
+        }
+        else {
+            res.json(brewSession);
+        }
     });
 });
 
