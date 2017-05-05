@@ -98,16 +98,40 @@ app.get('/brew', function(req, res) {
     status.isBrewSessionRunning = false;
 
     var exec = require('child_process').exec;
-    exec('pgrep -f pid-test -c', function(error, stdout, stderr) {
+    exec('pgrep -f pid-test -a', function(error, stdout, stderr) {
         if (error !== null) {
             console.log('exec error: ', error);
             res.status(500).send(err);
         }
 
-        // not sure why this is 2 when the process is running.
-        // from the shell directly this is either 0 or 1. here it's 1 or 2.
-        if (stdout.charAt(0) === '2') {
-            status.isBrewSessionRunning = true;
+        const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s(\d+)\s(\d+)/g;
+        // example stdout
+        // const str = `1815 sudo node ../pid-test/app.js PATH_TEST 2 3
+        // 1819 node ../pid-test/app.js PATH_TEST 2 3
+        // 1911 /bin/sh -c pgrep -f pid-test -a`;
+        let m;
+
+        while ((m = regex.exec(stdout)) !== null) {
+            // This is necessary to avoid infinite loops with zero-width matches
+            if (m.index === regex.lastIndex) {
+                regex.lastIndex++;
+            }
+            
+            // The result can be accessed through the `m`-variable.
+            m.forEach((match, groupIndex) => {
+                status.isBrewSessionRunning = true;
+                switch (groupIndex) {
+                    case 3:
+                        status.sessionName = match;
+                        break;
+                    case 4:
+                        status.mashTemp = match;
+                        break;
+                    case 5:
+                        status.mashHoldTime = match;
+                        break;
+                }
+            });
         }
 
         res.json(status);
