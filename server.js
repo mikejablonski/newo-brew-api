@@ -104,7 +104,7 @@ app.get('/brew', function(req, res) {
             res.status(500).send(err);
         }
 
-        const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s(\d+)\s(\d+)/g;
+        const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s([\d\.]+)\s([\d|\.]+)/g;
         // example stdout
         // const str = `1815 sudo node ../pid-test/app.js PATH_TEST 2 3
         // 1819 node ../pid-test/app.js PATH_TEST 2 3
