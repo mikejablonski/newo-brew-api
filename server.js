@@ -11,7 +11,24 @@ var max31855 = require('max31855');
 var thermoSensor = new max31855();
 
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
+relayHeat.write(1, function(err) {
+        if (err) {
+            console.log('Error set heater initial state to off.');
+        }
+        else {
+            console.log('Set heater initial state to off.');
+        }
+    });
+
 var relayPump = new Gpio(pinGpioNumPump, 'out'); // uses "GPIO" numbering
+relayPump.write(1, function(err) {
+        if (err) {
+            console.log('Error set pump initial state to off.');
+        }
+        else {
+            console.log('Set pump initial state to off.');
+        }
+    });
 
 // parse application/x-www-form-urlencoded 
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -106,9 +123,9 @@ app.get('/brew', function(req, res) {
 
         const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s([\d\.]+)\s([\d|\.]+)/g;
         // example stdout
-        // const str = `1815 sudo node ../pid-test/app.js PATH_TEST 2 3
+        // 1815 sudo node ../pid-test/app.js PATH_TEST 2 3
         // 1819 node ../pid-test/app.js PATH_TEST 2 3
-        // 1911 /bin/sh -c pgrep -f pid-test -a`;
+        // 1911 /bin/sh -c pgrep -f pid-test -a
         let m;
 
         while ((m = regex.exec(stdout)) !== null) {
@@ -173,11 +190,24 @@ app.get('/brewSession/:brewSessionName', function(req, res) {
         var brewSessionCollection = db.getCollection('brewSessions');
         brewSession = brewSessionCollection.findOne( {'name': req.params.brewSessionName} );
         if (!brewSession) {
-            //res.sendStatus(404);
             res.status(404).send('Brew session not found');
         }
         else {
             res.json(brewSession);
+        }
+    });
+});
+
+// returns brew session history data from the database
+app.get('/brewSessions', function(req, res) {
+    var db = new loki('../pid-test/brewSessions.json');
+    db.loadDatabase({}, function() {
+        var brewSessionCollection = db.getCollection('brewSessions');
+        if (!brewSessionCollection) {
+            res.status(404).send('Brew session history not found');
+        }
+        else {
+            res.json(brewSessionCollection);
         }
     });
 });
