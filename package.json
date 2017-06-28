@@ -10,9 +10,9 @@
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.17.1",
+    "child-process-promise": "^2.2.1",
     "express": "^4.15.2",
     "lokijs": "^1.4.3",
-    "max31855": "git+https://github.com/maugdog/max31855.git",
     "onoff": "^1.1.2"
   }
 }

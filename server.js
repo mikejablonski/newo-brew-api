@@ -7,8 +7,7 @@ var Gpio = require('onoff').Gpio;
 var pinGpioNumHeat = 5;
 var pinGpioNumPump = 6;
 
-var max31855 = require('max31855');
-var thermoSensor = new max31855();
+var exec = require('child-process-promise').exec;
 
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 relayHeat.write(1, function(err) {
@@ -48,12 +47,21 @@ app.get('/', function(req, res) {
 
 // returns temp sensor data
 app.get('/temp', function(req, res) {
-    thermoSensor.readTempC(function(temp) {
-        var tempSensor = {};
-        tempSensor.degreesC = Number(temp).toFixed(2);
-        tempSensor.degreesF = Number(temp * 9/5 + 32).toFixed(2);
-        res.json(tempSensor);
-    });
+    var tempSensor = {};
+    
+    exec('python ../MAX31865/max31865.py')
+        .then(function (result) {
+            var stdout = result.stdout;
+            var stderr = result.stderr;
+            
+            tempSensor.degreesC = Number(stdout).toFixed(2);;
+            tempSensor.degreesF = Number(stdout * 9/5 + 32).toFixed(2);
+            res.json(tempSensor);
+        })
+        .catch(function (err) {
+            console.error('ERROR: ', err);
+            res.status(500).send('Something broke!');
+        });
 });
 
 // returns pump status
