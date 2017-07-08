@@ -3,31 +3,54 @@ var bodyParser = require('body-parser')
 var app = express();
 var fs = require("fs");
 var loki = require('lokijs');
+var dateFormat = require('dateformat');
 var Gpio = require('onoff').Gpio;
 var pinGpioNumHeat = 5;
 var pinGpioNumPump = 6;
+var pinGpioNumValve1 = 26;
+var pinGpioNumValve2 = 13;
 
 var exec = require('child-process-promise').exec;
 
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 relayHeat.write(1, function(err) {
-        if (err) {
-            console.log('Error set heater initial state to off.');
-        }
-        else {
-            console.log('Set heater initial state to off.');
-        }
-    });
+    if (err) {
+        console.log('Error set heater initial state to off.');
+    }
+    else {
+        console.log('Set heater initial state to off.');
+    }
+});
 
 var relayPump = new Gpio(pinGpioNumPump, 'out'); // uses "GPIO" numbering
 relayPump.write(1, function(err) {
-        if (err) {
-            console.log('Error set pump initial state to off.');
-        }
-        else {
-            console.log('Set pump initial state to off.');
-        }
-    });
+    if (err) {
+        console.log('Error set pump initial state to off.');
+    }
+    else {
+        console.log('Set pump initial state to off.');
+    }
+});
+
+var relayValve1 = new Gpio(pinGpioNumValve1, 'out'); // uses "GPIO" numbering
+relayValve1.write(1, function(err) {
+    if (err) {
+        console.log('Error set valve 1 initial state to off.');
+    }
+    else {
+        console.log('Set valve 1 initial state to off.');
+    }
+});
+
+var relayValve2 = new Gpio(pinGpioNumValve2, 'out'); // uses "GPIO" numbering
+relayValve2.write(1, function(err) {
+    if (err) {
+        console.log('Error set valve 2 initial state to off.');
+    }
+    else {
+        console.log('Set valve 2 initial state to off.');
+    }
+});
 
 // parse application/x-www-form-urlencoded 
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -42,7 +65,7 @@ app.use(function(req, res, next) {
 });
 
 app.get('/', function(req, res) {
-    res.send('Hello from Newo Brew.');
+    res.send('Hello from Ballard.');
 });
 
 // returns temp sensor data
@@ -54,7 +77,7 @@ app.get('/temp', function(req, res) {
             var stdout = result.stdout;
             var stderr = result.stderr;
             
-            tempSensor.degreesC = Number(stdout).toFixed(2);;
+            tempSensor.degreesC = Number(stdout).toFixed(2);
             tempSensor.degreesF = Number(stdout * 9/5 + 32).toFixed(2);
             res.json(tempSensor);
         })
@@ -82,6 +105,43 @@ app.post('/pump/:val', function(req, res) {
         writeVal = 0; // on
     }
     relayPump.write(writeVal, function(err) {
+        if (err) {
+            res.status(500).send(err);
+        }
+        else {
+            res.sendStatus(200);
+        }
+    });
+});
+
+// get ball valve status
+app.get('/valve/:num', function(req, res) {
+    var valve = relayValve1;
+    if (req.params.num == "2") {
+        valve = relayValve2;
+    }
+
+    readVal = valve.read(function(err, val) {
+        var relay = {};
+        relay.name = `valve${req.params.num}`;
+        relay.status = val;
+        relay.description = val === 1 ? "off" : "on";
+        res.json(relay);
+    });    
+});
+
+// set ball valve position
+app.post('/valve/:num/:val', function(req, res) {
+    var valve = relayValve1;
+    if (req.params.num == "2") {
+        valve = relayValve2;
+    }
+
+    var writeVal = 1; // off
+    if (req.params.val == "0" || req.params.val == "on") {
+        writeVal = 0; // on
+    }
+    valve.write(writeVal, function(err) {
         if (err) {
             res.status(500).send(err);
         }
@@ -165,6 +225,7 @@ app.get('/brew', function(req, res) {
 
 app.post('/brew/:action', function(req, res) {
     var spawn = require('child_process').spawn;
+    var response = {};
 
     if (req.params.action == "start") {
         // get the params
@@ -182,9 +243,44 @@ app.post('/brew/:action', function(req, res) {
         var theProcess = spawn('pkill', theArgs);
     }
 
-    var response = {};
-    response.action = req.params.action;
-    res.json(response);
+    if (req.params.action == "save") {
+        var db = new loki('../pid-test/brewSessions.json');
+        db.loadDatabase({}, function() {
+            var brewSessionCollection = db.getCollection('brewSessions');
+
+            // get the params
+            var brewSessionName = req.body.name;
+            var mashSteps = req.body.mashSteps;
+            var boil = req.body.boil;
+
+            var createdDate = new Date().getTime();
+            brewSession = {
+                'name': brewSessionName,
+                'created': createdDate,
+                'formattedCreated': dateFormat(createdDate, "mm-dd-yyyy"),
+                //'mashStartTime': '',
+                //'formattedMashStartTime': '',
+                //'mashEndTime': '',
+                //'formattedMashEndTime': '',
+                'mashSteps': mashSteps,
+                'boil': boil,
+                'mashTempData': []
+            };
+            var resultObject = brewSessionCollection.insert(brewSession);
+            
+            response.id = resultObject.$loki;
+            console.log('inserted new item: ', response.id);
+            
+            db.saveDatabase(function(err) {
+                if (err) {
+                    console.log('Save database error.', {error: err})
+                }
+            });
+
+            response.action = req.params.action;
+            res.json(response);
+        });
+    }
 });
 
 app.listen(3001, function () {
@@ -192,11 +288,11 @@ app.listen(3001, function () {
 })
 
 // returns brew session data from the database
-app.get('/brewSession/:brewSessionName', function(req, res) {
+app.get('/brewSession/:sessionId', function(req, res) {
     var db = new loki('../pid-test/brewSessions.json');
     db.loadDatabase({}, function() {
         var brewSessionCollection = db.getCollection('brewSessions');
-        brewSession = brewSessionCollection.findOne( {'name': req.params.brewSessionName} );
+        brewSession = brewSessionCollection.get(Number(req.params.sessionId));
         if (!brewSession) {
             res.status(404).send('Brew session not found');
         }
