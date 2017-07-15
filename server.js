@@ -211,15 +211,26 @@ app.get('/brew', function(req, res) {
             // The result can be accessed through the `m`-variable.
             m.forEach((match, groupIndex) => {
                 status.isBrewSessionRunning = true;
-                switch (groupIndex) {
-                    case 3:
-                        status.sessionId = match;
-                        break;
+                if (groupIndex == 3) {
+                    status.sessionId = match;
                 }
             });
         }
 
-        res.json(status);
+        if (!status.isBrewSessionRunning) {
+            res.json(status);
+        }
+        else {
+            var db = new loki('../pid-test/brewSessions.json');
+            db.loadDatabase({}, function() {
+                var brewSessionCollection = db.getCollection('brewSessions');
+                brewSession = brewSessionCollection.get(Number(status.sessionId));
+                if (brewSession) {
+                    status.brewSession = brewSession;
+                }
+                res.json(status);    
+            });
+        }
     });
 });
 
