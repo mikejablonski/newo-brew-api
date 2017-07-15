@@ -5,7 +5,7 @@ var fs = require("fs");
 var loki = require('lokijs');
 var dateFormat = require('dateformat');
 var Gpio = require('onoff').Gpio;
-var pinGpioNumHeat = 5;
+var pinGpioNumHeat = 27;
 var pinGpioNumPump = 6;
 var pinGpioNumValve1 = 26;
 var pinGpioNumValve2 = 13;
@@ -13,7 +13,8 @@ var pinGpioNumValve2 = 13;
 var exec = require('child-process-promise').exec;
 
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
-relayHeat.write(1, function(err) {
+// zero is off on the SSR
+relayHeat.write(0, function(err) {
     if (err) {
         console.log('Error set heater initial state to off.');
     }
@@ -157,16 +158,17 @@ app.get('/heater', function(req, res) {
         var relay = {};
         relay.name = "heater";
         relay.status = val;
-        relay.description = val === 1 ? "off" : "on";
+        // zero is off on the SSR
+        relay.description = val === 0 ? "off" : "on";
         res.json(relay);
     });
 });
 
 // sets heater status
 app.post('/heater/:val', function(req, res) {
-    var writeVal = 1; // off
-    if (req.params.val == "0" || req.params.val == "on") {
-        writeVal = 0; // on
+    var writeVal = 0; // zero is off on the SSR
+    if (req.params.val == "1" || req.params.val == "on") {
+        writeVal = 1; // on
     }
     relayHeat.write(writeVal, function(err) {
         if (err) {
@@ -189,11 +191,15 @@ app.get('/brew', function(req, res) {
             res.status(500).send(err);
         }
 
-        const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s([\d\.]+)\s([\d|\.]+)/g;
+        //const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s([\d\.]+)\s([\d|\.]+)/g;
+        const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([\d|\.]+)/g;
         // example stdout
         // 1815 sudo node ../pid-test/app.js PATH_TEST 2 3
         // 1819 node ../pid-test/app.js PATH_TEST 2 3
         // 1911 /bin/sh -c pgrep -f pid-test -a
+
+        // updated version, by session id
+        // 1815 sudo node ../pid-test/app.js 1
         let m;
 
         while ((m = regex.exec(stdout)) !== null) {
@@ -207,13 +213,7 @@ app.get('/brew', function(req, res) {
                 status.isBrewSessionRunning = true;
                 switch (groupIndex) {
                     case 3:
-                        status.sessionName = match;
-                        break;
-                    case 4:
-                        status.mashTemp = match;
-                        break;
-                    case 5:
-                        status.mashHoldTime = match;
+                        status.sessionId = match;
                         break;
                 }
             });
@@ -226,27 +226,36 @@ app.get('/brew', function(req, res) {
 app.post('/brew/:action', function(req, res) {
     var spawn = require('child_process').spawn;
     var response = {};
+    response.id = 0;
 
     if (req.params.action == "start") {
         // get the params
-        var sessionName = req.body.sessionName;
-        var mashTemp = req.body.mashTemp;
-        var mashHoldTime = req.body.mashHoldTime;
+        var sessionId = req.body.sessionId;
 
         // start the pid process
-        var theArgs = ['/home/pi/Documents/pid-test/app.js', sessionName, mashTemp,  mashHoldTime];
+        var theArgs = ['/home/pi/Documents/pid-test/app.js', sessionId];
         var theOptions = {cwd: '/home/pi/Documents/pid-test'};
         var theProcess = spawn('node', theArgs, theOptions);
+
+        response.action = req.params.action;
+        res.json(response);
     }
+
     if (req.params.action == "stop") {
         var theArgs = ['-f', 'pid-test'];
         var theProcess = spawn('pkill', theArgs);
+
+        response.action = req.params.action;
+        res.json(response);
     }
 
     if (req.params.action == "save") {
         var db = new loki('../pid-test/brewSessions.json');
         db.loadDatabase({}, function() {
             var brewSessionCollection = db.getCollection('brewSessions');
+            if (brewSessionCollection === null) {
+                brewSessionCollection = db.addCollection('brewSessions');
+            }
 
             // get the params
             var brewSessionName = req.body.name;
@@ -258,27 +267,23 @@ app.post('/brew/:action', function(req, res) {
                 'name': brewSessionName,
                 'created': createdDate,
                 'formattedCreated': dateFormat(createdDate, "mm-dd-yyyy"),
-                //'mashStartTime': '',
-                //'formattedMashStartTime': '',
-                //'mashEndTime': '',
-                //'formattedMashEndTime': '',
+                'step': 1,
+                'status': 1, // status: 1=stopped, 2=running, 3=complete
                 'mashSteps': mashSteps,
                 'boil': boil,
                 'mashTempData': []
             };
             var resultObject = brewSessionCollection.insert(brewSession);
-            
             response.id = resultObject.$loki;
-            console.log('inserted new item: ', response.id);
             
             db.saveDatabase(function(err) {
                 if (err) {
                     console.log('Save database error.', {error: err})
                 }
-            });
 
-            response.action = req.params.action;
-            res.json(response);
+                response.action = req.params.action;
+                res.json(response);
+            });
         });
     }
 });
