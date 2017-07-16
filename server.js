@@ -226,6 +226,7 @@ app.get('/brew', function(req, res) {
                 var brewSessionCollection = db.getCollection('brewSessions');
                 brewSession = brewSessionCollection.get(Number(status.sessionId));
                 if (brewSession) {
+                    calculateMinutesRemaining(brewSession);
                     status.brewSession = brewSession;
                 }
                 res.json(status);    
@@ -331,5 +332,41 @@ app.get('/brewSessions', function(req, res) {
         }
     });
 });
+
+function calculateMinutesRemaining(brewSession) {
+    var minutes = 0;
+
+    if (brewSession.step == 1) {
+        // we are heating the strike water
+        
+    }
+    for (var i=0; i < brewSession.mashSteps.length; i++) {
+        if (brewSession.mashSteps[i].mashEndTime) {
+            minutes += 0;
+        }
+        else if (brewSession.mashSteps[i].mashStartTime) {
+            var now = new Date().getTime();
+            var mashTimeElapsed = (now - brewSession.mashSteps[i].mashStartTime) / 60000;
+            minutes += (brewSession.mashSteps[i].time - mashTimeElapsed);
+        }
+        else {
+            minutes += brewSession.mashSteps[i].time;
+        }
+    }
+    
+    if (brewSession.boil.boilEndTime) {
+        minutes += 0;
+    }
+    else if (brewSession.boil.boilStartTime) {
+        var now = new Date().getTime();
+        var boilTimeElapsed = (now - brewSession.boil.boilStartTime) / 60000;
+        minutes += (brewSession.boil.time - boilTimeElapsed);     
+    }
+    else {
+        minutes += brewSession.boil.time;
+    }
+
+    brewSession.minutesRemaining = minutes.toFixed(2);;
+}
 
 module.exports = app;
