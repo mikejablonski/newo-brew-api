@@ -185,21 +185,21 @@ app.get('/brew', function(req, res) {
     status.isBrewSessionRunning = false;
 
     var exec = require('child_process').exec;
-    exec('pgrep -f pid-test -a', function(error, stdout, stderr) {
+    exec('pgrep -f newo-brew-controller -a', function(error, stdout, stderr) {
         if (error !== null) {
             console.log('exec error: ', error);
             res.status(500).send(err);
         }
 
-        //const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([^\s]+)\s([\d\.]+)\s([\d|\.]+)/g;
-        const regex = /\d+\s(node|sudo\snode)(.*)pid-test\/app\.js\s([\d|\.]+)/g;
+        //const regex = /\d+\s(node|sudo\snode)(.*)newo-brew-controller\/app\.js\s([^\s]+)\s([\d\.]+)\s([\d|\.]+)/g;
+        const regex = /\d+\s(node|sudo\snode)(.*)newo-brew-controller\/app\.js\s([\d|\.]+)/g;
         // example stdout
-        // 1815 sudo node ../pid-test/app.js PATH_TEST 2 3
-        // 1819 node ../pid-test/app.js PATH_TEST 2 3
-        // 1911 /bin/sh -c pgrep -f pid-test -a
+        // 1815 sudo node ../newo-brew-controller/app.js PATH_TEST 2 3
+        // 1819 node ../newo-brew-controller/app.js PATH_TEST 2 3
+        // 1911 /bin/sh -c pgrep -f newo-brew-controller -a
 
         // updated version, by session id
-        // 1815 sudo node ../pid-test/app.js 1
+        // 1815 sudo node ../newo-brew-controller/app.js 1
         let m;
 
         while ((m = regex.exec(stdout)) !== null) {
@@ -221,7 +221,7 @@ app.get('/brew', function(req, res) {
             res.json(status);
         }
         else {
-            var db = new loki('../pid-test/brewSessions.json');
+            var db = new loki('../newo-brew-controller/brewSessions.json');
             db.loadDatabase({}, function() {
                 var brewSessionCollection = db.getCollection('brewSessions');
                 brewSession = brewSessionCollection.get(Number(status.sessionId));
@@ -245,8 +245,8 @@ app.post('/brew/:action', function(req, res) {
         var sessionId = req.body.sessionId;
 
         // start the pid process
-        var theArgs = ['/home/pi/Documents/pid-test/app.js', sessionId];
-        var theOptions = {cwd: '/home/pi/Documents/pid-test'};
+        var theArgs = ['/home/pi/Documents/newo-brew-controller/app.js', sessionId];
+        var theOptions = {cwd: '/home/pi/Documents/newo-brew-controller'};
         var theProcess = spawn('node', theArgs, theOptions);
 
         response.action = req.params.action;
@@ -254,7 +254,7 @@ app.post('/brew/:action', function(req, res) {
     }
 
     if (req.params.action == "stop") {
-        var theArgs = ['-f', 'pid-test'];
+        var theArgs = ['-f', 'newo-brew-controller'];
         var theProcess = spawn('pkill', theArgs);
 
         response.action = req.params.action;
@@ -262,7 +262,7 @@ app.post('/brew/:action', function(req, res) {
     }
 
     if (req.params.action == "save") {
-        var db = new loki('../pid-test/brewSessions.json');
+        var db = new loki('../newo-brew-controller/brewSessions.json');
         db.loadDatabase({}, function() {
             var brewSessionCollection = db.getCollection('brewSessions');
             if (brewSessionCollection === null) {
@@ -306,7 +306,7 @@ app.listen(3001, function () {
 
 // returns brew session data from the database
 app.get('/brewSession/:sessionId', function(req, res) {
-    var db = new loki('../pid-test/brewSessions.json');
+    var db = new loki('../newo-brew-controller/brewSessions.json');
     db.loadDatabase({}, function() {
         var brewSessionCollection = db.getCollection('brewSessions');
         brewSession = brewSessionCollection.get(Number(req.params.sessionId));
@@ -321,7 +321,7 @@ app.get('/brewSession/:sessionId', function(req, res) {
 
 // returns brew session history data from the database
 app.get('/brewSessions', function(req, res) {
-    var db = new loki('../pid-test/brewSessions.json');
+    var db = new loki('../newo-brew-controller/brewSessions.json');
     db.loadDatabase({}, function() {
         var brewSessionCollection = db.getCollection('brewSessions');
         if (!brewSessionCollection) {
@@ -366,7 +366,7 @@ function calculateMinutesRemaining(brewSession) {
         minutes += brewSession.boil.time;
     }
 
-    brewSession.minutesRemaining = minutes.toFixed(2);;
+    brewSession.minutesRemaining = minutes; //minutes.toFixed(2);;
 }
 
 module.exports = app;
