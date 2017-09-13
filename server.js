@@ -73,7 +73,7 @@ app.get('/', function(req, res) {
 app.get('/temp', function(req, res) {
     var tempSensor = {};
     
-    exec('python ../MAX31865/max31865.py')
+    exec('python ../py-max31865/max31865.py')
         .then(function (result) {
             var stdout = result.stdout;
             var stderr = result.stderr;
@@ -336,37 +336,56 @@ app.get('/brewSessions', function(req, res) {
 function calculateMinutesRemaining(brewSession) {
     var minutes = 0;
 
+    var hasHitMashStepTemp = false;
+    var mashStepTargetTemp = 0;
+    var hasHitBoilStepTemp = false;
+    var boilStepTargetTemp = 0;
+
     if (brewSession.step == 1) {
         // we are heating the strike water
         
     }
     for (var i=0; i < brewSession.mashSteps.length; i++) {
         if (brewSession.mashSteps[i].mashEndTime) {
+            // this mash step is completed.
             minutes += 0;
         }
         else if (brewSession.mashSteps[i].mashStartTime) {
+            // this mash step is running (target temp hit).
             var now = new Date().getTime();
             var mashTimeElapsed = (now - brewSession.mashSteps[i].mashStartTime) / 60000;
             minutes += (brewSession.mashSteps[i].time - mashTimeElapsed);
+            hasHitMashStepTemp = true;
+            mashStepTargetTemp = brewSession.mashSteps[i].temp;
         }
         else {
+            // this mash step has not yet started (or is heating).
             minutes += brewSession.mashSteps[i].time;
+            mashStepTargetTemp = brewSession.mashSteps[i].temp;
         }
     }
     
     if (brewSession.boil.boilEndTime) {
+        // the boil step is completed.
         minutes += 0;
     }
     else if (brewSession.boil.boilStartTime) {
+        // the boil step is running (target temp hit).
         var now = new Date().getTime();
         var boilTimeElapsed = (now - brewSession.boil.boilStartTime) / 60000;
-        minutes += (brewSession.boil.time - boilTimeElapsed);     
+        minutes += (brewSession.boil.time - boilTimeElapsed);
+        hasHitBoilStepTemp = true;
     }
     else {
+        // the boil step has not yet started (or is heating).
         minutes += brewSession.boil.time;
     }
 
     brewSession.minutesRemaining = minutes; //minutes.toFixed(2);;
+    brewSession.hasHitBoilStepTemp = hasHitBoilStepTemp;
+    brewSession.hasHitMashStepTemp = hasHitMashStepTemp;
+    brewSession.mashStepTargetTemp = mashStepTargetTemp;
+
 }
 
 module.exports = app;
