@@ -9,11 +9,13 @@
   "author": "Mike Jablonski",
   "license": "ISC",
   "dependencies": {
+    "apicache": "^1.0.0",
     "body-parser": "^1.17.1",
     "child-process-promise": "^2.2.1",
     "dateformat": "^2.0.0",
     "express": "^4.15.2",
     "lokijs": "^1.4.3",
-    "onoff": "^1.1.2"
+    "onoff": "^1.1.2",
+    "sqlite3": "^3.1.11"
   }
 }

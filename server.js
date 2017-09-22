@@ -1,4 +1,5 @@
 var express = require('express');
+var apicache = require('apicache');
 var bodyParser = require('body-parser')
 var app = express();
 var fs = require("fs");
@@ -10,7 +11,9 @@ var pinGpioNumPump = 6;
 var pinGpioNumValve1 = 26;
 var pinGpioNumValve2 = 13;
 
-var exec = require('child-process-promise').exec;
+var cache = apicache.middleware;
+
+var sqlite3 = require('sqlite3').verbose();
 
 var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 // zero is off on the SSR
@@ -72,20 +75,18 @@ app.get('/', function(req, res) {
 // returns temp sensor data
 app.get('/temp', function(req, res) {
     var tempSensor = {};
-    
-    exec('python ../py-max31865/max31865.py')
-        .then(function (result) {
-            var stdout = result.stdout;
-            var stderr = result.stderr;
-            
-            tempSensor.degreesC = Number(stdout).toFixed(2);
-            tempSensor.degreesF = Number(stdout * 9/5 + 32).toFixed(2);
-            res.json(tempSensor);
-        })
-        .catch(function (err) {
-            console.error('ERROR: ', err);
+    var db = new sqlite3.Database('../newo-brew-temp-daemon/temp.db', sqlite3.OPEN_READONLY);
+    db.all('SELECT * FROM temp', function(err, rows) {
+        if (err) {
+            console.log(err);
             res.status(500).send('Something broke!');
-        });
+            db.close();
+        }
+        tempSensor.degreesC = Number(rows[0].temp).toFixed(2);
+        tempSensor.degreesF = Number(rows[0].temp * 9/5 + 32).toFixed(2);
+        res.json(tempSensor);
+        db.close();
+    });
 });
 
 // returns pump status
