@@ -2,7 +2,6 @@ var express = require('express');
 var apicache = require('apicache');
 var bodyParser = require('body-parser')
 var app = express();
-var fs = require("fs");
 var loki = require('lokijs');
 var dateFormat = require('dateformat');
 var Gpio = require('onoff').Gpio;
@@ -12,6 +11,32 @@ var pinGpioNumValve1 = 26;
 var pinGpioNumValve2 = 13;
 
 var cache = apicache.middleware;
+const winston = require('winston');
+const fs = require('fs');
+const env = process.env.NODE_ENV || 'development';
+const logDir = 'logs';
+// Create the log directory if it does not exist
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir);
+}
+const tsFormat = () => (new Date()).toLocaleTimeString();
+const logger = new (winston.Logger)({
+  transports: [
+    // colorize the output to the console
+    new (winston.transports.Console)({
+      timestamp: tsFormat,
+      colorize: true,
+      level: env === 'development' ? 'debug' : 'info'
+    }),
+    new (winston.transports.File)({
+      filename: `${logDir}/log.json`,
+      timestamp: tsFormat,
+      maxsize: 5242880, // 5 MB
+      maxFiles: 10,
+      level: env === 'development' ? 'debug' : 'info'
+    })
+  ]
+});
 
 var sqlite3 = require('sqlite3').verbose();
 
@@ -19,40 +44,40 @@ var relayHeat = new Gpio(pinGpioNumHeat, 'out'); // uses "GPIO" numbering
 // zero is off on the SSR
 relayHeat.write(0, function(err) {
     if (err) {
-        console.log('Error set heater initial state to off.');
+        logger.log('Error set heater initial state to off.');
     }
     else {
-        console.log('Set heater initial state to off.');
+        logger.log('Set heater initial state to off.');
     }
 });
 
 var relayPump = new Gpio(pinGpioNumPump, 'out'); // uses "GPIO" numbering
 relayPump.write(1, function(err) {
     if (err) {
-        console.log('Error set pump initial state to off.');
+        logger.log('Error set pump initial state to off.');
     }
     else {
-        console.log('Set pump initial state to off.');
+        logger.log('Set pump initial state to off.');
     }
 });
 
 var relayValve1 = new Gpio(pinGpioNumValve1, 'out'); // uses "GPIO" numbering
 relayValve1.write(1, function(err) {
     if (err) {
-        console.log('Error set valve 1 initial state to off.');
+        logger.log('Error set valve 1 initial state to off.');
     }
     else {
-        console.log('Set valve 1 initial state to off.');
+        logger.log('Set valve 1 initial state to off.');
     }
 });
 
 var relayValve2 = new Gpio(pinGpioNumValve2, 'out'); // uses "GPIO" numbering
 relayValve2.write(1, function(err) {
     if (err) {
-        console.log('Error set valve 2 initial state to off.');
+        logger.log('Error set valve 2 initial state to off.');
     }
     else {
-        console.log('Set valve 2 initial state to off.');
+        logger.log('Set valve 2 initial state to off.');
     }
 });
 
@@ -76,16 +101,23 @@ app.get('/', function(req, res) {
 app.get('/temp', function(req, res) {
     var tempSensor = {};
     var db = new sqlite3.Database('../newo-brew-temp-daemon/temp.db', sqlite3.OPEN_READONLY);
+
     db.all('SELECT * FROM temp', function(err, rows) {
         if (err) {
-            console.log(err);
-            res.status(500).send('Something broke!');
+            logger.error('Error in temp route.');
+            logger.error(err);
+            // We still want to return something valid to the controller.
+            tempSensor.degreesC = -1;
+            tempSensor.degreesF = -1;
+            res.json(tempSensor);
             db.close();
         }
-        tempSensor.degreesC = Number(rows[0].temp).toFixed(2);
-        tempSensor.degreesF = Number(rows[0].temp * 9/5 + 32).toFixed(2);
-        res.json(tempSensor);
-        db.close();
+        else {
+            tempSensor.degreesC = Number(rows[0].temp).toFixed(2);
+            tempSensor.degreesF = Number(rows[0].temp * 9/5 + 32).toFixed(2);
+            res.json(tempSensor);
+            db.close();
+        }
     });
 });
 
@@ -145,6 +177,8 @@ app.post('/valve/:num/:val', function(req, res) {
     }
     valve.write(writeVal, function(err) {
         if (err) {
+            logger.error('Error in post valve route.');
+            logger.error(err);
             res.status(500).send(err);
         }
         else {
@@ -173,6 +207,8 @@ app.post('/heater/:val', function(req, res) {
     }
     relayHeat.write(writeVal, function(err) {
         if (err) {
+            logger.error('Error in post heater route.');
+            logger.error(err);
             res.status(500).send(err);
         }
         else {
@@ -188,7 +224,7 @@ app.get('/brew', function(req, res) {
     var exec = require('child_process').exec;
     exec('pgrep -f newo-brew-controller -a', function(error, stdout, stderr) {
         if (error !== null) {
-            console.log('exec error: ', error);
+            logger.log('exec error: ', error);
             res.status(500).send(err);
         }
 
@@ -291,7 +327,7 @@ app.post('/brew/:action', function(req, res) {
             
             db.saveDatabase(function(err) {
                 if (err) {
-                    console.log('Save database error.', {error: err})
+                    logger.error('Save database error.', {error: err})
                 }
 
                 response.action = req.params.action;
@@ -302,7 +338,7 @@ app.post('/brew/:action', function(req, res) {
 });
 
 app.listen(3001, function () {
-  console.log('Newo Brew API listening on port 3001!')
+  logger.verbose('Newo Brew API listening on port 3001!')
 })
 
 // returns brew session data from the database
@@ -388,5 +424,11 @@ function calculateMinutesRemaining(brewSession) {
     brewSession.mashStepTargetTemp = mashStepTargetTemp;
 
 }
+
+// process.on('uncaughtException', function (err) {
+//   logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+//   logger.error(err.stack);
+//   process.exit(1);
+// })
 
 module.exports = app;
