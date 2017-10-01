@@ -10,6 +10,9 @@ var pinGpioNumPump = 6;
 var pinGpioNumValve1 = 26;
 var pinGpioNumValve2 = 13;
 
+// this is what we'll add to the tempC value from the temp db
+var tempCalibrationAdjustment = 1.26;
+
 var cache = apicache.middleware;
 const winston = require('winston');
 const fs = require('fs');
@@ -113,8 +116,11 @@ app.get('/temp', function(req, res) {
             db.close();
         }
         else {
-            tempSensor.degreesC = Number(rows[0].temp).toFixed(2);
-            tempSensor.degreesF = Number(rows[0].temp * 9/5 + 32).toFixed(2);
+            var dbTemp = Number(rows[0].temp);
+            dbTemp += tempCalibrationAdjustment;
+
+            tempSensor.degreesC = Number(dbTemp).toFixed(2);
+            tempSensor.degreesF = Number(dbTemp * 9/5 + 32).toFixed(2);
             res.json(tempSensor);
             db.close();
         }
