@@ -300,8 +300,30 @@ app.post('/brew/:action', function(req, res) {
         var theArgs = ['-f', 'newo-brew-controller'];
         var theProcess = spawn('pkill', theArgs);
 
-        response.action = req.params.action;
-        res.json(response);
+        // update the database so all running are now stopped.
+        var db = new loki('../newo-brew-controller/brewSessions.json');
+        db.loadDatabase({}, function() {
+            var brewSessionCollection = db.getCollection('brewSessions');
+            if (brewSessionCollection) {
+                brewSessionCollection.findAndUpdate(
+                    function (obj) {
+                        return obj.status == 2;
+                    },
+                    function (obj) {
+                        obj.status = 1;
+                        return obj;
+                    });
+            }
+
+            db.saveDatabase(function(err) {
+                if (err) {
+                    logger.error('Save database error.', {error: err})
+                }
+
+                response.action = req.params.action;
+                res.json(response);
+            }); 
+        });
     }
 
     if (req.params.action == "save") {
@@ -322,6 +344,7 @@ app.post('/brew/:action', function(req, res) {
                 'name': brewSessionName,
                 'created': createdDate,
                 'formattedCreated': dateFormat(createdDate, "mm-dd-yyyy"),
+                'lastStarted': createdDate,
                 'step': 1,
                 'status': 1, // status: 1=stopped, 2=running, 3=complete
                 'mashSteps': mashSteps,
