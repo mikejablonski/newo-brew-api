@@ -305,12 +305,13 @@ app.post('/brew/:action', function(req, res) {
         db.loadDatabase({}, function() {
             var brewSessionCollection = db.getCollection('brewSessions');
             if (brewSessionCollection) {
+                // find all running sessions and mark them as stopped.
                 brewSessionCollection.findAndUpdate(
                     function (obj) {
-                        return obj.status == 2;
+                        return obj.status == 2; // running
                     },
                     function (obj) {
-                        obj.status = 1;
+                        obj.status = 1; // stopped
                         return obj;
                     });
             }
