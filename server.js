@@ -283,18 +283,22 @@ app.post('/brew/:action', function(req, res) {
     var response = {};
     response.id = 0;
 
-    if (req.params.action == "start") {
+    if (req.params.action == "start" || req.params.action == "simulate") {
         // get the params
         var sessionId = req.body.sessionId;
 
         // start the pid process
         var theArgs = ['/home/pi/Documents/newo-brew-controller/app.js', sessionId];
+        if (req.params.action == "simulate") {
+            theArgs.push('true'); // add the simulate boolean to the command line args
+        }
         var theOptions = {cwd: '/home/pi/Documents/newo-brew-controller'};
+        logger.verbose('Starting controller with args and options', theArgs, theOptions);
         var theProcess = spawn('node', theArgs, theOptions);
 
         response.action = req.params.action;
         res.json(response);
-    }
+    }   
 
     if (req.params.action == "stop") {
         var theArgs = ['-f', 'newo-brew-controller'];
