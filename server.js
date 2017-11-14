@@ -411,11 +411,13 @@ function calculateMinutesRemaining(brewSession) {
     var mashStepTargetTemp = 0;
     var hasHitBoilStepTemp = false;
     var boilStepTargetTemp = 0;
+    var mashStepIndex = 0;
+    var currentStepMinutesRemaining = 0;
 
     if (brewSession.step == 1) {
         // we are heating the strike water
-        
     }
+
     for (var i=0; i < brewSession.mashSteps.length; i++) {
         if (brewSession.mashSteps[i].mashEndTime) {
             // this mash step is completed.
@@ -425,14 +427,17 @@ function calculateMinutesRemaining(brewSession) {
             // this mash step is running (target temp hit).
             var now = new Date().getTime();
             var mashTimeElapsed = (now - brewSession.mashSteps[i].mashStartTime) / 60000;
-            minutes += (brewSession.mashSteps[i].time - mashTimeElapsed);
+            var mashStepMinutesRemianing = (brewSession.mashSteps[i].time - mashTimeElapsed);
+            
+            minutes += mashStepMinutesRemianing;
             hasHitMashStepTemp = true;
             mashStepTargetTemp = brewSession.mashSteps[i].temp;
+            mashStepIndex = i;
+            currentStepMinutesRemaining = mashStepMinutesRemianing;
         }
         else {
             // this mash step has not yet started (or is heating).
             minutes += brewSession.mashSteps[i].time;
-            mashStepTargetTemp = brewSession.mashSteps[i].temp;
         }
     }
     
@@ -444,8 +449,11 @@ function calculateMinutesRemaining(brewSession) {
         // the boil step is running (target temp hit).
         var now = new Date().getTime();
         var boilTimeElapsed = (now - brewSession.boil.boilStartTime) / 60000;
-        minutes += (brewSession.boil.time - boilTimeElapsed);
+        var boilStepMinutesRemaining = (brewSession.boil.time - boilTimeElapsed);
+        minutes += boilStepMinutesRemaining;
         hasHitBoilStepTemp = true;
+
+        currentStepMinutesRemaining = boilStepMinutesRemaining;
     }
     else {
         // the boil step has not yet started (or is heating).
@@ -456,6 +464,8 @@ function calculateMinutesRemaining(brewSession) {
     brewSession.hasHitBoilStepTemp = hasHitBoilStepTemp;
     brewSession.hasHitMashStepTemp = hasHitMashStepTemp;
     brewSession.mashStepTargetTemp = mashStepTargetTemp;
+    brewSession.currentMashStep = mashStepIndex + 1;
+    brewSession.currentStepMinutesRemaining = currentStepMinutesRemaining;
 
 }
 
